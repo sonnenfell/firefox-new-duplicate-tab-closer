@@ -8,6 +8,7 @@
     "gecko": {
       "id": "close-new-duplicate-tabs@sunfur.com", 
       "data_collection_permissions": {
+        "required": ["none"],
         "allow_platform_data_collection": false,
         "user_controls": false,
         "policy_url": "https://github.com/sonnenfell/firefox-new-duplicate-tab-closer/blob/main/PRIVACY.md"
