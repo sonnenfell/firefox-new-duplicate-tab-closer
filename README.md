@@ -11,12 +11,16 @@ Simply head this extensions [Firefox Add-on page](https://addons.mozilla.org/en-
 
 ## Planned features in future updates:
 Based on some feedback (and my own exeprience as well), I plan to add some functionality to this plugin, with options being the main focus. The features I'm currently thinking of are:
--click extension icon in toolbar to toggle on/off
--only switch tab focus if the currently focussed tab is the one being closed by this extension
--simple options menu:
-  -choose wether to close the newer or older duplicate tab by default
-  -option to always prefer closing an unloaded ("asleep") tab
-  -pinned tabs behaviour options: completely ignore pinned tabs / never close a pinned tab (always close the other tab instead) / treat like any other tab
+- click extension icon in toolbar to toggle on/off
+- only switch tab focus if the currently focussed tab is the one being closed by this extension
+- simple options menu:
+  - choose wether to close the newer or older duplicate tab by default
+  - option to always prefer closing an unloaded ("asleep") tab
+  - pinned tabs behaviour options:
+    - completely ignore pinned tabs
+    - never close a pinned tab (always close the other tab instead)
+    - treat like any other tab
 
 If you have any other useful (and realistic) features for this extension in mind, use the Issues tab to request.
+
 _Of course everyone who wishes to can also directly contribute to this extension - simply make a pull request and I will accept it if there are no bugs/compliance issues._
