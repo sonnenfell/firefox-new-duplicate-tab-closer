@@ -25,13 +25,25 @@ browser.tabs.onCreated.addListener((newTab) => {
             const originalTab = duplicateTabs.find(t => t.id !== newTab.id);
             
             if (originalTab) {
-              // 5. Switch to the original tab and close the new duplicate tab.
-              
-              // Highlight the original tab
-              browser.tabs.update(originalTab.id, { active: true });
-              
-              // Close the new duplicate tab
-              browser.tabs.remove(newTab.id);
+              // Check for keepNewTab setting
+              browser.storage.local.get(['keepNewTab', 'focusNewTab']).then(result => {
+                if (result.keepNewTab) {
+                  // 5b. Close the original tab and keep the new duplicate tab.
+                  browser.tabs.remove(originalTab.id);
+                  if (result.focusNewTab) {
+                    // Focus the new tab if the sub-setting is enabled
+                    browser.tabs.update(newTab.id, { active: true });
+                  }
+                } else {
+                  // 5a. Switch to the original tab and close the new duplicate tab.
+                  
+                  // Highlight the original tab
+                  browser.tabs.update(originalTab.id, { active: true });
+                  
+                  // Close the new duplicate tab
+                  browser.tabs.remove(newTab.id);
+                }
+              });
             }
           }
           
