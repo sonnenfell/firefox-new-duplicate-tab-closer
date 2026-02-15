@@ -4,19 +4,205 @@
         <title>Close New Duplicate Tabs - Options</title>
 
         <style>
+            :root {
+                --bg-primary: #1e1e1e;
+                --bg-secondary: #2d2d2d;
+                --text-primary: #e8e8e8;
+                --text-secondary: #b0b0b0;
+                --border-color: #3d3d3d;
+                --button-bg: #0078d4;
+                --button-hover: #106ebe;
+                --button-active: #005a9e;
+                --success-text: #4ec9b0;
+                --success-bg: #1a3a34;
+                --success-border: #4ec9b0;
+            }
+
+            html.light-mode {
+                --bg-primary: #ffffff;
+                --bg-secondary: #f5f5f5;
+                --text-primary: #000000;
+                --text-secondary: #666666;
+                --border-color: #cccccc;
+                --button-bg: #0078d4;
+                --button-hover: #106ebe;
+                --button-active: #005a9e;
+                --success-text: #107c10;
+                --success-bg: #dffcf0;
+                --success-border: #107c10;
+            }
+
+            body {
+                background-color: var(--bg-primary);
+                color: var(--text-primary);
+                font-family: system-ui, -apple-system, sans-serif;
+                padding: 20px;
+                transition: background-color 0.3s, color 0.3s;
+                position: relative;
+            }
+
+            #themeToggle {
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                background: none;
+                border: none;
+                font-size: 12px;
+                cursor: pointer;
+                padding: 5px;
+                border-radius: 4px;
+                color: var(--text-primary);
+                transition: background-color 0.2s;
+            }
+
+            #themeToggle:hover {
+                background-color: var(--bg-secondary);
+            }
+
+            fieldset {
+                border-color: var(--border-color);
+            }
+
+            legend {
+                color: var(--text-primary);
+            }
+
+            label {
+                color: var(--text-primary);
+            }
+
+            input[type="checkbox"],
+            input[type="radio"] {
+                accent-color: var(--button-bg);
+            }
+
             .sub-setting { margin-left: 1.8em; }
+            
+            #closeAllDuplicatesBtn {
+                margin-top: 20px;
+                padding: 10px 15px;
+                background-color: var(--button-bg);
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                transition: background-color 0.2s;
+            }
+            
+            #closeAllDuplicatesBtn:hover {
+                background-color: var(--button-hover);
+            }
+            
+            #closeAllDuplicatesBtn:active {
+                background-color: var(--button-active);
+            }
+            
+            #closeAllDuplicatesBtn:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
+            
+            #statusMessage {
+                margin-top: 10px;
+                padding: 10px;
+                font-size: 14px;
+                display: none;
+                border-radius: 4px;
+            }
+            
+            #statusMessage.success {
+                color: var(--success-text);
+                background-color: var(--success-bg);
+                border: 1px solid var(--success-border);
+            }
         </style>
     </head>
     <body>
+        <script>
+            // Initialize theme immediately to avoid flash
+            const themePreference = localStorage.getItem('theme') || 'dark';
+            if (themePreference === 'light') {
+                document.documentElement.classList.add('light-mode');
+            }
+        </script>
+        
+        <button id="themeToggle" title="Toggle dark/light mode">🌙</button>
+        
         <div class="setting-group">
-            <label for="keepNewTab">
-                <input type="checkbox" id="keepNewTab" /> Keep the newer tab (closes the old one)
+            <label for="enableExtension">
+                <input type="checkbox" id="enableExtension" /> Enable extension
             </label>
+        </div>
+        <div class="setting-group">
+            <fieldset>
+                <legend>Icon click behaviour:</legend>
+                <label>
+                    <input type="radio" name="iconClickBehaviour" value="openOptionsAddon" /> Show options in addon menu
+                </label>
+                <label>
+                    <input type="radio" name="iconClickBehaviour" value="openOptionsTab" /> Open options page
+                </label>
+                <label>
+                    <input type="radio" name="iconClickBehaviour" value="toggleExtension" /> Enable/Disable Extension
+                </label>
+                <label>
+                    <input type="radio" name="iconClickBehaviour" value="closeAllDuplicates" /> Close all duplicates
+                </label>
+            </fieldset>
+        </div>
+        <div class="setting-group">
+            <fieldset>
+                <legend>Duplicate tab behaviour:</legend>
+                <label>
+                    <input type="radio" name="duplicateTabBehaviour" value="doNothing" /> Do nothing
+                </label>
+                <label>
+                    <input type="radio" name="duplicateTabBehaviour" value="keepOlder" /> Keep the older tab (closes the new one)
+                </label>
+                <label>
+                    <input type="radio" name="duplicateTabBehaviour" value="keepNewer" /> Keep the newer tab (closes the old one)
+                </label>
+            </fieldset>
         </div>
         <div class="setting-group sub-setting">
             <label for="focusNewTab">
                 <input type="checkbox" id="focusNewTab" /> Focus on new tab when keeping duplicate
             </label>
+        </div>
+        <div class="setting-group">
+            <label for="keepDuplicateExplicit">
+                <input type="checkbox" id="keepDuplicateExplicit" /> Keep duplicate when explicitly duplicating tab
+            </label>
+        </div>
+        <div class="setting-group">
+            <label for="changeFocusOnRemove">
+                <input type="checkbox" id="changeFocusOnRemove" /> Change focus when removing a duplicate tab
+            </label>
+        </div>
+        <div class="setting-group">
+            <label for="preferClosingUnloaded">
+                <input type="checkbox" id="preferClosingUnloaded" /> Always prefer closing unloaded tabs
+            </label>
+        </div>
+        <div class="setting-group">
+            <fieldset>
+                <legend>Pinned tabs behaviour:</legend>
+                <label>
+                    <input type="radio" name="pinnedTabsBehaviour" value="treatNormal" /> Treat like any other tab
+                </label>
+                <label>
+                    <input type="radio" name="pinnedTabsBehaviour" value="neverClosePinned" /> Never close a pinned tab
+                </label>
+                <label>
+                    <input type="radio" name="pinnedTabsBehaviour" value="ignorePinned" /> Completely ignore pinned tabs
+                </label>
+            </fieldset>
+        </div>
+
+        <div class="setting-group">
+            <button id="closeAllDuplicatesBtn">Close all duplicates now</button>
+            <div id="statusMessage"></div>
         </div>
 
         <script src="options.js"></script>

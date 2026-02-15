@@ -1,22 +1,22 @@
 {
   "manifest_version": 2,
   "name": "Close New Duplicate Tabs",
-  "version": "1.0",
+  "version": "2.0",
   "description": "Closes a newly created tab if tab with the same URL is already open. Does not destroy your old tabs if you accidentally open a duplicate url.",
   "author": "Sunfur",
   "browser_specific_settings": {
     "gecko": {
       "id": "close-new-duplicate-tabs@sunfur.com", 
       "data_collection_permissions": {
-        "required": ["none"],
-        "allow_platform_data_collection": false,
-        "user_controls": false,
-        "policy_url": "https://github.com/sonnenfell/firefox-new-duplicate-tab-closer/blob/main/PRIVACY.md"
+        "required": ["none"]
       }
     }
   },
   "background": {
     "scripts": ["background.js"]
+  },
+  "browser_action": {
+    "default_title": "Close New Duplicate Tabs"
   },
   "permissions": [
     "tabs",
@@ -24,6 +24,6 @@
   ],
   "options_ui": {
     "page": "options/options.html",
-    "open_in_tab": true
+    "open_in_tab": false
   }
 }
