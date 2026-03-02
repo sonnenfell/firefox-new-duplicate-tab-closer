@@ -15,16 +15,16 @@ browser.tabs.onCreated.addListener((newTab) => {
       // If the URL is valid, proceed with the duplicate check
       if (isValidUrl(tab.url)) {
         
-        // Retrieve settings including duplicate tab behaviour and other options
-        browser.storage.local.get(['enableExtension', 'duplicateTabBehaviour', 'focusNewTab', 'keepDuplicateExplicit', 'changeFocusOnRemove', 'pinnedTabsBehaviour', 'preferClosingUnloaded']).then(result => {
+        // Retrieve all settings
+        browser.storage.local.get(null).then(settings => {
           // Check if extension is enabled (default to true)
-          if (result.enableExtension === false) {
+          if (settings.enableExtension === false) {
             browser.tabs.onUpdated.removeListener(updateListener);
             return;
           }
           
-          const duplicateBehaviour = result.duplicateTabBehaviour || 'keepOlder';
-          const pinnedBehaviour = result.pinnedTabsBehaviour || 'neverClosePinned';
+          const duplicateBehaviour = settings.duplicateTabBehaviour || 'keepOlder';
+          const pinnedBehaviour = settings.pinnedTabsBehaviour || 'neverClosePinned';
           
           // If duplicate tab behaviour is set to "do nothing", skip processing
           if (duplicateBehaviour === 'doNothing') {
@@ -38,11 +38,11 @@ browser.tabs.onCreated.addListener((newTab) => {
             return;
           }
           
-          // 3. Query all other tabs for the same URL
-          browser.tabs.query({ url: tab.url }).then((duplicateTabs) => {
-            
-            // The query will include the new tab itself, so we check for more than one result.
-            if (duplicateTabs.length > 1) {
+          // 3. Query all other tabs
+          browser.tabs.query({}).then((allTabs) => {
+            let duplicateTabs = allTabs.filter(otherTab => otherTab.id !== newTab.id && isDuplicate(tab, otherTab, settings));
+
+            if (duplicateTabs.length > 0) {
               
               // Filter out pinned tabs if ignoring them
               let filteredDuplicateTabs = duplicateTabs;
@@ -51,27 +51,27 @@ browser.tabs.onCreated.addListener((newTab) => {
               }
               
               // If no duplicates after filtering, skip
-              if (filteredDuplicateTabs.length <= 1) {
+              if (filteredDuplicateTabs.length === 0) {
                 browser.tabs.onUpdated.removeListener(updateListener);
                 return;
               }
               
               // 4. A duplicate was found! Find the original tab (the one that wasn't just created).
-              let originalTab = filteredDuplicateTabs.find(t => t.id !== newTab.id);
+              let originalTab = filteredDuplicateTabs[0]; // First found duplicate
               
               if (originalTab) {
                 // Check if the new tab is being created from the currently active tab
                 browser.tabs.query({ active: true, currentWindow: true }).then((activeTabs) => {
                   const activeTab = activeTabs[0];
-                  const isExplicitDuplicate = activeTab && activeTab.url === tab.url;
+                  const isExplicitDuplicate = activeTab && isDuplicate(tab, activeTab, settings);
                   
                   // If explicitly duplicating and the setting is enabled, keep the duplicate
-                  if (isExplicitDuplicate && result.keepDuplicateExplicit) {
+                  if (isExplicitDuplicate && settings.keepDuplicateExplicit) {
                     // Keep the new duplicate tab (browser handles focus by default)
                   } else if (duplicateBehaviour === 'keepNewer') {
                     // 5b. Close the original tab and keep the new duplicate tab.
                     browser.tabs.remove(originalTab.id);
-                    if (result.focusNewTab) {
+                    if (settings.focusNewTab) {
                       // Focus the new tab if the sub-setting is enabled
                       browser.tabs.update(newTab.id, { active: true });
                     }
@@ -82,7 +82,7 @@ browser.tabs.onCreated.addListener((newTab) => {
                     let tabToFocus = originalTab.id;
                     
                     // Check if we should prefer closing unloaded tabs
-                    if (result.preferClosingUnloaded) {
+                    if (settings.preferClosingUnloaded) {
                       const newTabDiscarded = tab.discarded;
                       const originalTabDiscarded = originalTab.discarded;
                       
@@ -112,7 +112,7 @@ browser.tabs.onCreated.addListener((newTab) => {
                     // 5a. Switch to the tab that will remain and close the duplicate tab.
                     
                     // Change focus to the tab that will remain if the setting is enabled
-                    if (result.changeFocusOnRemove !== false) {
+                    if (settings.changeFocusOnRemove !== false) {
                       browser.tabs.update(tabToFocus, { active: true });
                     }
                     
@@ -136,65 +136,62 @@ browser.tabs.onCreated.addListener((newTab) => {
   browser.tabs.onUpdated.addListener(updateListener);
 });
 
+// Function to close all duplicate tabs
+async function closeAllDuplicates() {
+    const settings = await browser.storage.local.get(null);
+    const tabs = await browser.tabs.query({});
+    const duplicates = [];
+    const seen = [];
+
+    tabs.forEach(tab => {
+        let isDuplicateTab = false;
+        for (let i = 0; i < seen.length; i++) {
+            if (isDuplicate(tab, seen[i], settings)) {
+                isDuplicateTab = true;
+                duplicates.push(tab.id);
+                break;
+            }
+        }
+        if (!isDuplicateTab) {
+            seen.push(tab);
+        }
+    });
+
+    if (duplicates.length > 0) {
+        await browser.tabs.remove(duplicates);
+    }
+}
+
 // Handle extension icon click based on selected behaviour
 browser.browserAction.onClicked.addListener(async () => {
-  const result = await browser.storage.local.get('iconClickBehaviour');
-  const behaviour = result.iconClickBehaviour || 'openOptionsTab';
-  
-  if (behaviour === 'toggleExtension') {
-    // Toggle enable/disable extension
-    const settings = await browser.storage.local.get('enableExtension');
-    const newState = settings.enableExtension === false ? true : false;
-    await browser.storage.local.set({ enableExtension: newState });
-  } else if (behaviour === 'openOptionsTab') {
-    // Open options in a new tab
-    browser.tabs.create({ url: browser.runtime.getURL('options/options.html') });
-  } else if (behaviour === 'closeAllDuplicates') {
-    // Close all duplicates
-    const tabs = await browser.tabs.query({});
-    const tabsByUrl = {};
-    
-    // Group tabs by URL
-    tabs.forEach(tab => {
-      const url = tab.url;
-      if (!tabsByUrl[url]) {
-        tabsByUrl[url] = [];
-      }
-      tabsByUrl[url].push(tab);
-    });
-    
-    // Process each URL group
-    for (const url in tabsByUrl) {
-      const urlTabs = tabsByUrl[url];
-      
-      // Skip if only one tab with this URL
-      if (urlTabs.length <= 1) {
-        continue;
-      }
-      
-      // Check if any tabs are pinned
-      const pinnedTabs = urlTabs.filter(t => t.pinned);
-      
-      let tabsToRemove = [];
-      
-      if (pinnedTabs.length > 0) {
-        // If there are pinned tabs, keep one pinned tab and remove all others
-        tabsToRemove = urlTabs.filter(t => t.id !== pinnedTabs[0].id);
-      } else {
-        // If no pinned tabs, keep one tab and remove all others
-        tabsToRemove = urlTabs.slice(1);
-      }
-      
-      // Close all duplicate tabs
-      const tabIdsToRemove = tabsToRemove.map(t => t.id);
-      await browser.tabs.remove(tabIdsToRemove);
+    const settings = await browser.storage.local.get(null);
+    const behaviour = settings.iconClickBehaviour || 'openOptionsTab';
+
+    if (behaviour === 'toggleExtension') {
+        const newState = settings.enableExtension === false ? true : false;
+        await browser.storage.local.set({ enableExtension: newState });
+    } else if (behaviour === 'openOptionsTab') {
+        browser.tabs.create({ url: browser.runtime.getURL('options/options.html') });
+    } else if (behaviour === 'closeAllDuplicates') {
+        closeAllDuplicates();
+    } else if (behaviour === 'openOptionsAddon') {
+        browser.runtime.openOptionsPage();
+    } else {
+        browser.runtime.openOptionsPage();
     }
-  } else if (behaviour === 'openOptionsAddon') {
-    // Default: open options in addon menu
-    browser.runtime.openOptionsPage();
-  } else {
-    // Unknown behaviour, default to showing options in addon menu
-    browser.runtime.openOptionsPage();
+});
+
+// Create context menu for closing all duplicate tabs
+browser.menus.create({
+  id: "close-all-duplicate-tabs",
+  title: "Close all duplicate tabs",
+  contexts: ["tab"]
+});
+
+// Handle context menu click
+browser.menus.onClicked.addListener((info, tab) => {
+  if (info.menuItemId === "close-all-duplicate-tabs") {
+    closeAllDuplicates();
   }
 });
 

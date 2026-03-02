@@ -39,6 +39,8 @@
                 padding: 20px;
                 transition: background-color 0.3s, color 0.3s;
                 position: relative;
+                max-width: 600px;
+                margin: auto;
             }
 
             #themeToggle {
@@ -61,22 +63,46 @@
 
             fieldset {
                 border-color: var(--border-color);
+                border-radius: 4px;
+                padding: 10px 15px;
             }
 
             legend {
                 color: var(--text-primary);
+                font-weight: bold;
+                padding: 0 5px;
             }
 
             label {
                 color: var(--text-primary);
+                display: block;
+                margin-bottom: 8px;
+            }
+            
+            .setting-group {
+                margin-bottom: 20px;
             }
 
             input[type="checkbox"],
             input[type="radio"] {
                 accent-color: var(--button-bg);
+                margin-right: 8px;
+                vertical-align: middle;
             }
 
-            .sub-setting { margin-left: 1.8em; }
+            .sub-setting { 
+                margin-left: 1.8em;
+                padding-left: 10px;
+                border-left: 2px solid var(--border-color);
+            }
+            
+            select, textarea {
+                background-color: var(--bg-secondary);
+                color: var(--text-primary);
+                border: 1px solid var(--border-color);
+                border-radius: 4px;
+                padding: 5px;
+            }
             
             #closeAllDuplicatesBtn {
                 margin-top: 20px;
@@ -129,80 +155,126 @@
         
         <button id="themeToggle" title="Toggle dark/light mode">🌙</button>
         
-        <div class="setting-group">
+        <div class="setting-group" title="Globally enable or disable the extension's functionality.">
             <label for="enableExtension">
                 <input type="checkbox" id="enableExtension" /> Enable extension
             </label>
         </div>
-        <div class="setting-group">
+        <div class="setting-group" title="Choose what happens when you click the extension's icon in the toolbar.">
             <fieldset>
                 <legend>Icon click behaviour:</legend>
-                <label>
+                <label title="Show the options directly in a popup under the icon.">
                     <input type="radio" name="iconClickBehaviour" value="openOptionsAddon" /> Show options in addon menu
                 </label>
-                <label>
+                <label title="Open the full options page in a new tab.">
                     <input type="radio" name="iconClickBehaviour" value="openOptionsTab" /> Open options page
                 </label>
-                <label>
+                <label title="Toggle the extension on or off.">
                     <input type="radio" name="iconClickBehaviour" value="toggleExtension" /> Enable/Disable Extension
                 </label>
-                <label>
+                <label title="Immediately find and close all currently open duplicate tabs.">
                     <input type="radio" name="iconClickBehaviour" value="closeAllDuplicates" /> Close all duplicates
                 </label>
             </fieldset>
         </div>
-        <div class="setting-group">
+        <div class="setting-group" title="Decide how to handle a newly opened tab that is a duplicate of an existing one.">
             <fieldset>
                 <legend>Duplicate tab behaviour:</legend>
-                <label>
+                <label title="The extension will not close any tabs automatically. You can still close all duplicates via the tabs context menu or the extension icon if the click behaviour is set to 'Close all duplicates'.">
                     <input type="radio" name="duplicateTabBehaviour" value="doNothing" /> Do nothing
                 </label>
-                <label>
+                <label title="The newly opened duplicate tab will be closed, keeping the original tab.">
                     <input type="radio" name="duplicateTabBehaviour" value="keepOlder" /> Keep the older tab (closes the new one)
                 </label>
-                <label>
+                <label title="The original tab will be closed, keeping the newly opened duplicate.">
                     <input type="radio" name="duplicateTabBehaviour" value="keepNewer" /> Keep the newer tab (closes the old one)
                 </label>
             </fieldset>
         </div>
-        <div class="setting-group sub-setting">
+        <div class="setting-group sub-setting" title="If 'Keep the newer tab' is selected, the browser will focus on the new tab after the old one is closed.">
             <label for="focusNewTab">
                 <input type="checkbox" id="focusNewTab" /> Focus on new tab when keeping duplicate
             </label>
         </div>
-        <div class="setting-group">
+        <div class="setting-group" title="Prevents closing a tab if the currently focussed tab has the same URL. This will allow using the browsers 'duplicate tab' feature without the extension interfering.">
             <label for="keepDuplicateExplicit">
                 <input type="checkbox" id="keepDuplicateExplicit" /> Keep duplicate when explicitly duplicating tab
             </label>
         </div>
-        <div class="setting-group">
+        <div class="setting-group" title="When a duplicate is closed, automatically switch focus to the tab that remains open.">
             <label for="changeFocusOnRemove">
                 <input type="checkbox" id="changeFocusOnRemove" /> Change focus when removing a duplicate tab
             </label>
         </div>
-        <div class="setting-group">
+        <div class="setting-group" title="When comparing a fully loaded tab and a tab that is still loading (e.g. a background tab), the unloaded tab will always be the one that gets closed, regardless of other settings.">
             <label for="preferClosingUnloaded">
                 <input type="checkbox" id="preferClosingUnloaded" /> Always prefer closing unloaded tabs
             </label>
         </div>
-        <div class="setting-group">
+        <div class="setting-group" title="Configure how the extension treats tabs that are pinned.">
             <fieldset>
                 <legend>Pinned tabs behaviour:</legend>
-                <label>
+                <label title="Pinned tabs are treated just like normal tabs.">
                     <input type="radio" name="pinnedTabsBehaviour" value="treatNormal" /> Treat like any other tab
                 </label>
-                <label>
+                <label title="A pinned tab will never be closed as a duplicate.">
                     <input type="radio" name="pinnedTabsBehaviour" value="neverClosePinned" /> Never close a pinned tab
                 </label>
-                <label>
+                <label title="Pinned tabs are completely ignored by the extension for duplicate checks.">
                     <input type="radio" name="pinnedTabsBehaviour" value="ignorePinned" /> Completely ignore pinned tabs
                 </label>
             </fieldset>
         </div>
 
-        <div class="setting-group">
-            <button id="closeAllDuplicatesBtn">Close all duplicates now</button>
-            <div id="statusMessage"></div>
+        <div class="setting-group" title="Enable this to unlock advanced options for defining what counts as a duplicate tab.">
+            <label for="customizeDuplicateDefinition">
+                <input type="checkbox" id="customizeDuplicateDefinition" /> Customize duplicate definition
+            </label>
+        </div>
+        <div class="setting-group sub-setting" id="duplicateDefinitionOptions">
+            <fieldset title="Choose the primary method for comparing tabs.">
+                <legend>Duplicate definition:</legend>
+                <label title="Compare tabs based on their full URL.">
+                    <input type="radio" name="duplicateCheckMethod" value="url" /> Use URL
+                </label>
+                <label title="Compare tabs based on their page title. If a tab has no title, its URL will be used as a fallback.">
+                    <input type="radio" name="duplicateCheckMethod" value="title" /> Use title (fallback to URL)
+                </label>
+            </fieldset>
+            <div class="setting-group sub-setting" title="When using URL for checks, this defines how much of the URL path must match. E.g., for 'https://a.com/p1/p2', 'Only Domain' matches 'a.com', '1' matches 'a.com/p1', '2' matches 'a.com/p1/p2', etc.">
+                <label for="urlPathSections">
+                    URL path sections to match:
+                    <select id="urlPathSections">
+                        <option value="full">Full Path</option>
+                        <option value="domain">Only Domain</option>
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                        <option value="5">5</option>
+                        <option value="6">6</option>
+                        <option value="7">7</option>
+                        <option value="8">8</option>
+                        <option value="9">9</option>
+                    </select>
+                </label>
+                <div style="font-size: 12px; color: var(--text-secondary); margin-left: 1.8em;">e.g. https://www.example-domain.com/path1/path2/path3</div>
+            </div>
+            <div class="setting-group sub-setting" title="Enable to ignore specific parts of a URL's search string (the part after '?').">
+                <label for="ignoreCustomSearchStrings">
+                    <input type="checkbox" id="ignoreCustomSearchStrings" /> Ignore custom search strings
+                </label>
+            </div>
+            <div class="setting-group sub-setting" id="customSearchStringKeywordsContainer" title="Enter search parameters to ignore, one per line. For example, to treat 'google.com?q=A' and 'google.com?q=B' as duplicates, add 'q=' here. Everything after the keyword will be ignored.">
+                <label for="customSearchStringKeywords">
+                    Keywords to ignore (one per line):
+                    <textarea id="customSearchStringKeywords" rows="6" placeholder="No keywords yet.&#10;Useful examples:&#10;q=&#10;ref=&#10;search?&#10;tags="></textarea>
+                </label>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 20px; margin-bottom: 20px;">
+            <a href="https://github.com/sonnenfell/firefox-new-duplicate-tab-closer/issues" target="_blank" style="color: var(--text-secondary); font-size: 12px;">Problems or suggestions? Open an issue on GitHub!</a>
         </div>
 
         <script src="options.js"></script>

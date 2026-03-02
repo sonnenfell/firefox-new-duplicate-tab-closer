@@ -32,7 +32,9 @@ document.getElementById('themeToggle').addEventListener('click', toggleTheme);
 
 // hierarchy of settings
 const dependencies = {
-  'focusNewTab': 'duplicateTabBehaviour-keepNewer'
+  'focusNewTab': 'duplicateTabBehaviour-keepNewer',
+  'duplicateDefinitionOptions': 'customizeDuplicateDefinition',
+  'customSearchStringKeywordsContainer': 'ignoreCustomSearchStrings'
 };
 
 // Settings that should be disabled when extension is disabled
@@ -44,12 +46,16 @@ const extensionDependentElements = [
   'preferClosingUnloaded',
   'pinnedTabsBehaviour',
   'iconClickBehaviour',
-  'closeAllDuplicatesBtn'
+  'customizeDuplicateDefinition'
 ];
 
 async function saveAllSettings() {
     const checkboxes = document.querySelectorAll('input[type="checkbox"]');
     const radios = document.querySelectorAll('input[type="radio"]:checked');
+    const numbers = document.querySelectorAll('input[type="number"]');
+    const texts = document.querySelectorAll('input[type="text"]');
+    const selects = document.querySelectorAll('select');
+    const textareas = document.querySelectorAll('textarea');
     const settings = {};    
 
     checkboxes.forEach(checkbox => {
@@ -58,6 +64,22 @@ async function saveAllSettings() {
 
     radios.forEach(radio => {
         settings[radio.name] = radio.value;
+    });
+
+    numbers.forEach(number => {
+        settings[number.id] = parseInt(number.value, 10);
+    });
+
+    texts.forEach(text => {
+        settings[text.id] = text.value;
+    });
+
+    selects.forEach(select => {
+        settings[select.id] = select.value;
+    });
+
+    textareas.forEach(textarea => {
+        settings[textarea.id] = textarea.value;
     });
 
     await browser.storage.local.set(settings);
@@ -117,11 +139,17 @@ function updateUIStates() {
     if (child) {
       child.disabled = !parentEnabled || !isExtensionEnabled;
       
-      const container = child.closest('.setting-group');
+      const container = child.closest('.setting-group, .sub-setting'); // Also check for .sub-setting
       if (container) {
         container.style.opacity = (parentEnabled && isExtensionEnabled) ? "1" : "0.5";
         container.style.pointerEvents = (parentEnabled && isExtensionEnabled) ? "auto" : "none";
         container.style.cursor = (parentEnabled && isExtensionEnabled) ? "auto" : "not-allowed";
+
+        // Also disable inputs inside the container
+        const inputs = container.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            input.disabled = !parentEnabled || !isExtensionEnabled;
+        });
       }
     }
   });
@@ -130,16 +158,27 @@ function updateUIStates() {
 async function init() {
   const checkboxes = document.querySelectorAll('input[type="checkbox"]');
   const radios = document.querySelectorAll('input[type="radio"]');
+  const numbers = document.querySelectorAll('input[type="number"]');
+  const texts = document.querySelectorAll('input[type="text"]');
+  const selects = document.querySelectorAll('select');
+  const textareas = document.querySelectorAll('textarea');
   
   const keys = Array.from(checkboxes).map(cb => cb.id);
   const radioNames = [...new Set(Array.from(radios).map(r => r.name))];
-  keys.push(...radioNames);
+  const numberIds = Array.from(numbers).map(num => num.id);
+  const textIds = Array.from(texts).map(text => text.id);
+  const selectIds = Array.from(selects).map(select => select.id);
+  const textareaIds = Array.from(textareas).map(ta => ta.id);
+  keys.push(...radioNames, ...numberIds, ...textIds, ...selectIds, ...textareaIds);
   
   const storage = await browser.storage.local.get(keys);
 
   checkboxes.forEach(cb => {
     // Default enableExtension to true, others to false
-    const defaultValue = cb.id === 'enableExtension' ? true : false;
+    let defaultValue = cb.id === 'enableExtension' ? true : false;
+    if (cb.id === 'ignoreCustomSearchStrings') {
+      defaultValue = true;
+    }
     cb.checked = storage[cb.id] ?? defaultValue;
     
     cb.addEventListener('change', async () => {
@@ -155,6 +194,8 @@ async function init() {
       radio.checked = storage[radio.name] === radio.value || (storage[radio.name] === undefined && radio.value === 'keepOlder');
     } else if (radio.name === 'iconClickBehaviour') {
       radio.checked = storage[radio.name] === radio.value || (storage[radio.name] === undefined && radio.value === 'openOptionsTab');
+    } else if (radio.name === 'duplicateCheckMethod') {
+        radio.checked = storage[radio.name] === radio.value || (storage[radio.name] === undefined && radio.value === 'url');
     } else {
       radio.checked = storage[radio.name] === radio.value;
     }
@@ -165,67 +206,53 @@ async function init() {
     });
   });
 
+  numbers.forEach(number => {
+    // No number inputs anymore, but keep for future use
+    number.addEventListener('change', async () => {
+        await saveAllSettings();
+    });
+  });
+
+  texts.forEach(text => {
+    text.value = storage[text.id] ?? '';
+    
+    text.addEventListener('change', async () => {
+      await saveAllSettings();
+    });
+  });
+
+  selects.forEach(select => {
+    if (select.id === 'urlPathSections') {
+      select.value = storage[select.id] ?? 'full';
+    }
+    
+    select.addEventListener('change', async () => {
+      await saveAllSettings();
+    });
+  });
+
+  textareas.forEach(textarea => {
+    if (textarea.id === 'customSearchStringKeywords') {
+      const defaultKeywords = [
+        'q=',
+        'ref=',
+        'search?',
+        'tags='
+      ].join('\n');
+      textarea.value = storage[textarea.id] ?? defaultKeywords;
+    } else {
+      textarea.value = storage[textarea.id] ?? '';
+    }
+
+    textarea.addEventListener('change', async () => {
+      await saveAllSettings();
+    });
+  });
+
   updateUIStates();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   init();
-});
-
-// Close all duplicates now functionality
-document.getElementById('closeAllDuplicatesBtn').addEventListener('click', async () => {
-  const tabs = await browser.tabs.query({});
-  const tabsByUrl = {};
-  
-  // Group tabs by URL
-  tabs.forEach(tab => {
-    const url = tab.url;
-    if (!tabsByUrl[url]) {
-      tabsByUrl[url] = [];
-    }
-    tabsByUrl[url].push(tab);
-  });
-  
-  let totalClosed = 0;
-  
-  // Process each URL group
-  for (const url in tabsByUrl) {
-    const urlTabs = tabsByUrl[url];
-    
-    // Skip if only one tab with this URL
-    if (urlTabs.length <= 1) {
-      continue;
-    }
-    
-    // Check if any tabs are pinned
-    const pinnedTabs = urlTabs.filter(t => t.pinned);
-    const unpinnedTabs = urlTabs.filter(t => !t.pinned);
-    
-    let tabsToRemove = [];
-    
-    if (pinnedTabs.length > 0) {
-      // If there are pinned tabs, keep one pinned tab and remove all others
-      tabsToRemove = urlTabs.filter(t => t.id !== pinnedTabs[0].id);
-    } else {
-      // If no pinned tabs, keep one tab and remove all others
-      tabsToRemove = urlTabs.slice(1);
-    }
-    
-    // Close all duplicate tabs
-    const tabIdsToRemove = tabsToRemove.map(t => t.id);
-    await browser.tabs.remove(tabIdsToRemove);
-    totalClosed += tabIdsToRemove.length;
-  }
-  
-  // Show status message
-  const statusMessage = document.getElementById('statusMessage');
-  statusMessage.textContent = `Closed ${totalClosed} duplicate tab${totalClosed !== 1 ? 's' : ''}.`;
-  statusMessage.className = 'success';
-  statusMessage.style.display = 'block';
-  
-  // Hide message after 3 seconds
-  setTimeout(() => {
-    statusMessage.style.display = 'none';
-  }, 3000);
 });
